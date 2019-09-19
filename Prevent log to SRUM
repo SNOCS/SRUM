@@ -1,0 +1,30 @@
+bool SruFileHandleExample(DWORD pidDPS)
+{
+	unsigned int dupResult=0;
+	bool returnVar=FALSE;
+	HANDLE hSRUMProcess;
+	// get a handle to the process
+	HANDLE hSRUMProcess = OpenProcess( PROCESS_ALL_ACCESS, TRUE, pidDPS );
+	if ( hSRUMProcess != NULL)
+	{
+		hSRUMFile = CreateFile(srumpath, GENERIC_READ, 0, NULL, OPEN_EXISTING, ACCESS_SYSTEM_SECURITY, NULL);
+		while ( hSRUMFile == NULL && hSRUMFile == INVALID_HANDLE_VALUE)
+		{
+			Sleep(180000);  // sleep for 3 minutes.
+			hSRUMFile = CreateFile(srumpath, GENERIC_READ, 0, NULL, OPEN_EXISTING, ACCESS_SYSTEM_SECURITY, NULL);
+		}
+		if(hSRUMFile!=NULL)
+		{
+			printf("Execute all your evil wishes");
+			//write your mal code here.
+			CloseHandle(hSRUMProcess);
+			returnVar=TRUE;
+			while(TRUE)
+			{
+				Sleep(INFINITE); // sleep – only for the example.
+			}
+			//CloseHandle(hSRUMFile); // release handle
+		}
+	}
+	return returnVar;
+}
