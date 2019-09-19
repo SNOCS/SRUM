@@ -1,0 +1,63 @@
+HANDLE GetSecurityHandle(ULONG pid)
+{
+	PSYSTEM_HANDLE_INFORMATION handleInfo;
+	ULONG handleInfoSize = 0x10000;
+	HANDLE processHandle = NULL;
+	// Get the list of all handles in the system
+    	PSYSTEM_HANDLE_INFORMATION pSysHandleInformation = new SYSTEM_HANDLE_INFORMATION;
+    	DWORD size = sizeof(SYSTEM_HANDLE_INFORMATION);
+    	DWORD needed = 0;
+	TCHAR Path[BUFSIZE];
+	std::string systemevtxStr ("Security.evtx");
+	HANDLE evthFile, evthFile2DUP;
+	handleInfo = (PSYSTEM_HANDLE_INFORMATION)malloc(handleInfoSize);
+
+	while ((NtQuerySystemInformation(SystemHandleInformation, handleInfo, handleInfoSize, NULL)) == STATUS_INFO_LENGTH_MISMATCH)
+			handleInfo = (PSYSTEM_HANDLE_INFORMATION)realloc(handleInfo, handleInfoSize *= 2);
+	
+	for (int i = 0; i < handleInfo->HandleCount; i++)
+	{
+			SYSTEM_HANDLE handle = handleInfo->Handles[i];
+			POBJECT_TYPE_INFORMATION objectTypeInfo;
+			PVOID objectNameInfo;
+			UNICODE_STRING objectName;
+			ULONG returnLength;
+			HANDLE processHandle;
+
+			processHandle = OpenProcess(PROCESS_DUP_HANDLE, FALSE, pid);
+			_NtDuplicateObject NtDuplicateObject = (_NtDuplicateObject)GetLibraryProcAddress("ntdll.dll", "NtDuplicateObject");
+			HANDLE dupHandle = NULL;
+
+			if (handle.ProcessId == pid && handle.ObjectTypeNumber == (BYTE)0x24)
+			{
+				NtDuplicateObject(processHandle, (HANDLE)handle.Handle, GetCurrentProcess(), &dupHandle, 0, 0, 0);
+				objectTypeInfo = (POBJECT_TYPE_INFORMATION)malloc(0x1000);
+				NtQueryObject(dupHandle, ObjectTypeInformation, objectTypeInfo, 0x1000, NULL);
+
+				objectNameInfo = malloc(0x1000);
+				NtQueryObject(dupHandle, (OBJECT_INFORMATION_CLASS)ObjectNameInformation, objectNameInfo, 0x1000, &returnLength);
+				objectNameInfo = realloc(objectNameInfo, returnLength);
+				if(NT_SUCCESS(NtQueryObject(dupHandle, (OBJECT_INFORMATION_CLASS)ObjectNameInformation, objectNameInfo, returnLength, NULL)))
+				{
+					objectName = *(PUNICODE_STRING)objectNameInfo;
+					int size_needed = WideCharToMultiByte(CP_UTF8, 0, objectName.Buffer, (int)objectName.Length, NULL, 0, NULL, NULL);
+					std::string strTo( size_needed, 0 );
+					WideCharToMultiByte(CP_UTF8, 0, objectName.Buffer, (int)objectName.Length, &strTo[0], size_needed, NULL, NULL);
+					std::size_t found = strTo.find(systemevtxStr);
+					if (found!=std::string::npos)
+					{
+						unsigned int dupResult=0;
+							
+						dupResult = DuplicateHandle(processHandle, (HANDLE)handle.Handle, GetCurrentProcess(),	&evthFile2DUP, 0,	FALSE, DUPLICATE_CLOSE_SOURCE);
+					}
+					_tprintf(TEXT("\nThe final path is: %s\n"), objectName.Buffer);
+				}
+			}
+			std::free(objectTypeInfo);
+			std::free(objectNameInfo);
+			CloseHandle(dupHandle);
+	}
+	std::free(handleInfo);
+	CloseHandle(processHandle);
+	return 0;
+}
